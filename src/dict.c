@@ -138,6 +138,7 @@ int dictResize(dict *d)
 
     if (!dict_can_resize || dictIsRehashing(d)) return DICT_ERR;
     minimal = d->ht[0].used;
+    //最少长度为4
     if (minimal < DICT_HT_INITIAL_SIZE)
         minimal = DICT_HT_INITIAL_SIZE;
     return dictExpand(d, minimal);
@@ -147,10 +148,12 @@ int dictResize(dict *d)
 int dictExpand(dict *d, unsigned long size)
 {
     dictht n; /* the new hash table */
+    //找到一个realsize=2^n,并且realsize>size,min(2^n-size)_n
     unsigned long realsize = _dictNextPower(size);
 
     /* the size is invalid if it is smaller than the number of
      * elements already inside the hash table */
+    //如果扩展之后的长度小于已经有的元素个数，则错误
     if (dictIsRehashing(d) || d->ht[0].used > size)
         return DICT_ERR;
 
@@ -159,6 +162,7 @@ int dictExpand(dict *d, unsigned long size)
 
     /* Allocate the new hash table and initialize all pointers to NULL */
     n.size = realsize;
+    //mask全为1,sizemake = \sum_{2^i} i \in [0,n-1]
     n.sizemask = realsize-1;
     n.table = zcalloc(realsize*sizeof(dictEntry*));
     n.used = 0;
