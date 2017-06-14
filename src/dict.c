@@ -189,6 +189,9 @@ int dictExpand(dict *d, unsigned long size)
  * guaranteed that this function will rehash even a single bucket, since it
  * will visit at max N*10 empty buckets in total, otherwise the amount of
  * work it does would be unbound and the function may block for a long time. */
+
+/* dict的rehash操作并非是一次完全执行的，传入参数n表示的是此次访问最多的空桶数
+ */
 int dictRehash(dict *d, int n) {
     int empty_visits = n*10; /* Max number of empty buckets to visit. */
     if (!dictIsRehashing(d)) return 0;
@@ -310,6 +313,9 @@ dictEntry *dictAddRaw(dict *d, void *key, dictEntry **existing)
      * Insert the element in top, with the assumption that in a database
      * system it is more likely that recently added entries are accessed
      * more frequently. */
+    /* 找到相应的hash index，使用头插法插到索引链的头部。在数据库系统中，
+     * 越是最近添加的再次使用可能性越大。
+     */
     ht = dictIsRehashing(d) ? &d->ht[1] : &d->ht[0];
     entry = zmalloc(sizeof(*entry));
     entry->next = ht->table[index];
@@ -343,6 +349,9 @@ int dictReplace(dict *d, void *key, void *val)
      * as the previous one. In this context, think to reference counting,
      * you want to increment (set), and then decrement (free), and not the
      * reverse. */
+    /* 这里主要是考虑到自定义的free函数在指针头部有引用计数，采用先指向增加
+     * 再减少一个的方式。
+     */
     auxentry = *existing;
     dictSetVal(d, existing, val);
     dictFreeVal(d, &auxentry);
@@ -511,6 +520,11 @@ void *dictFetchValue(dict *d, const void *key) {
  * the fingerprint again when the iterator is released.
  * If the two fingerprints are different it means that the user of the iterator
  * performed forbidden operations against the dictionary while iterating. */
+/*
+ * 生成一个迭代器时会产生一个对应的fingerprint，这个fingerprint表征了dict当时的
+ * 状态，如果最后release迭代器的时候检查fingerprint与之前生成的不一致，可能是当中
+ * 有一些被不能使用的操作被执行了。
+ */
 long long dictFingerprint(dict *d) {
     long long integers[6], hash = 0;
     int j;
@@ -979,6 +993,9 @@ static int _dictKeyIndex(dict *d, const void *key, unsigned int hash, dictEntry 
             }
             he = he->next;
         }
+        /*
+         * 如果不是处于rehashing状态，就不需要再在ht[1]中找
+         */
         if (!dictIsRehashing(d)) break;
     }
     return idx;
